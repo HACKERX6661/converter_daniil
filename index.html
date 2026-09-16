@@ -35,8 +35,50 @@
         .card h2 { font-size: 1.1rem; color: #f9fafb; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
 
         .controls { display: flex; flex-direction: column; gap: 10px; }
-        select, input, button, textarea { background: #1f2937; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-size: 0.9rem; outline: none; }
+        select, button, textarea { background: #1f2937; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-size: 0.9rem; outline: none; }
         
+        /* SCHÖNE FILE-UPLOAD BUTTONS STYLING */
+        .file-upload-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .file-upload-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .custom-file-btn {
+            width: 100%;
+            background: #1f2937;
+            border: 1px dashed var(--accent);
+            color: #a5b4fc;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .file-upload-wrapper:hover .custom-file-btn {
+            background: #2d3748;
+            border-color: #818cf8;
+            color: #ffffff;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+        }
+
         textarea.has-error {
             border: 2px solid var(--error-red) !important;
             box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
@@ -78,8 +120,12 @@
             <p>Client-side Media & Code Transformation Platform</p>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <a href="UniversalStudio.exe" download class="download-badge">🪟 Windows (.exe)</a>
-            <a href="UniversalStudio.apk" download class="download-badge" style="background:#059669; border-color:#10b981;">🤖 Android (.apk)</a>
+            <button onclick="alert('Um die Windows App zu nutzen, lade UniversalStudio.exe in dein GitHub Repository hoch!')" class="download-badge" style="cursor:pointer; border:1px solid #4338ca;">
+                🪟 Windows (.exe)
+            </button>
+            <button onclick="alert('Um die Android APK zu nutzen, lade UniversalStudio.apk in dein GitHub Repository hoch!')" class="download-badge" style="background:#059669; border-color:#10b981; cursor:pointer;">
+                🤖 Android (.apk)
+            </button>
         </div>
     </header>
 
@@ -108,7 +154,12 @@
         <div class="card">
             <h2>2. Media & Screensaver Engine</h2>
             <div class="controls">
-                <input type="file" id="media-file" accept="video/*,audio/*">
+                <!-- SCHÖNER FILE BUTTON -->
+                <div class="file-upload-wrapper">
+                    <input type="file" id="media-file" accept="video/*,audio/*" onchange="updateFileName(this, 'media-file-label')">
+                    <div class="custom-file-btn" id="media-file-label">📁 Datei auswählen oder hierher ziehen</div>
+                </div>
+
                 <select id="media-target">
                     <option value="mp4_to_mp3">MP4 &rarr; MP3 (Audio)</option>
                     <option value="m4a_to_mp3">M4A &rarr; MP3 (Audio)</option>
@@ -128,7 +179,13 @@
         <h2>3. ZIP Entpacker & Viren-Scanner</h2>
         <div class="controls">
             <p style="font-size:0.85rem; color: var(--text-muted);">Lade ein ZIP-Archiv hoch, um es zu entpacken, auf Viren zu prüfen und einzelne Dateien herunterzuladen:</p>
-            <input type="file" id="zip-file" accept=".zip">
+            
+            <!-- SCHÖNER FILE BUTTON -->
+            <div class="file-upload-wrapper">
+                <input type="file" id="zip-file" accept=".zip" onchange="updateFileName(this, 'zip-file-label')">
+                <div class="custom-file-btn" id="zip-file-label">📦 ZIP-Archiv auswählen</div>
+            </div>
+
             <button class="btn-primary" onclick="inspectAndUnzip()">ZIP Entpacken & Scannen</button>
         </div>
         <div class="output-box scan-log" id="scan-output">
@@ -138,6 +195,20 @@
 </div>
 
 <script>
+    // DATEINAMEN IM BUTTON ANZEIGEN
+    function updateFileName(input, labelId) {
+        const label = document.getElementById(labelId);
+        if (input.files && input.files.length > 0) {
+            label.innerHTML = `📄 ${input.files[0].name}`;
+            label.style.borderColor = '#10b981';
+            label.style.color = '#10b981';
+        } else {
+            label.innerHTML = `📁 Datei auswählen`;
+            label.style.borderColor = 'var(--accent)';
+            label.style.color = '#a5b4fc';
+        }
+    }
+
     const SUGGESTIONS = {
         'py2bat': ['print("Hello World")', 'import os', 'set var = 10', 'if __name__ == "__main__":'],
         'bat2py': ['echo Hello World', 'set var=10', 'rem Kommentar', 'pause'],
@@ -252,7 +323,6 @@
         }, 800);
     }
 
-    // ZIP ENTPACKEN, Viren-Scan & EINZELNE DATEIEN BEREITSTELLEN
     async function inspectAndUnzip() {
         const zipInput = document.getElementById('zip-file');
         const scanOutput = document.getElementById('scan-output');
