@@ -13,6 +13,7 @@
             --accent: #6366f1;
             --accent-hover: #4f46e5;
             --success: #10b981;
+            --error-red: #ef4444;
             --text: #f3f4f6;
             --text-muted: #9ca3af;
         }
@@ -25,25 +26,45 @@
         header h1 { font-size: 1.6rem; color: #818cf8; }
         header p { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
 
-        .download-badge { background: #1e1b4b; border: 1px solid #4338ca; color: #a5b4fc; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .download-badge { background: #1e1b4b; border: 1px solid #4338ca; color: #a5b4fc; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
         .download-badge:hover { background: #312e81; }
 
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .card h2 { font-size: 1.1rem; color: #f9fafb; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; }
+        .card h2 { font-size: 1.1rem; color: #f9fafb; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
 
         .controls { display: flex; flex-direction: column; gap: 10px; }
         select, input, button, textarea { background: #1f2937; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-size: 0.9rem; outline: none; }
-        select:focus, textarea:focus { border-color: var(--accent); }
+        
+        /* Rotes Leuchten bei Fehler */
+        textarea.has-error {
+            border: 2px solid var(--error-red) !important;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+            background: #1a0d0d !important;
+        }
+
+        /* Tipp-Box unter dem Editor */
+        .tip-box {
+            background: #271414;
+            border: 1px solid var(--error-red);
+            color: #fca5a5;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .autocomplete-info {
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-top: -5px;
+        }
 
         button.btn-primary { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
         button.btn-primary:hover { background: var(--accent-hover); }
 
-        textarea { height: 140px; font-family: monospace; resize: vertical; }
+        textarea { height: 140px; font-family: monospace; resize: vertical; transition: all 0.2s ease; }
         .output-box { background: #090d16; border: 1px solid var(--border); padding: 10px; border-radius: 6px; font-size: 0.85rem; min-height: 40px; color: var(--text-muted); word-break: break-all; }
-        
-        .platform-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
-        .tag { font-size: 0.7rem; background: #374151; padding: 2px 6px; border-radius: 4px; color: #d1d5db; }
     </style>
 </head>
 <body>
@@ -54,60 +75,45 @@
             <h1>Universal Studio Engine</h1>
             <p>Client-side Media & Code Transformation Platform</p>
         </div>
-        <button class="download-badge" onclick="downloadAppInfo()">
-            📥 App Herunterladen (Win/Mac/Linux/iOS/Android)
-        </button>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="UniversalStudio.exe" download class="download-badge">🪟 Windows (.exe)</a>
+            <a href="UniversalStudio.apk" download class="download-badge" style="background:#059669; border-color:#10b981;">🤖 Android (.apk)</a>
+        </div>
     </header>
 
-    <!-- DOWNLOAD PLATFORM BANNER -->
-    <div class="card" id="download-banner" style="display:none; border-color: var(--accent);">
-        <h2>Download & Installation für alle Systeme</h2>
-        <p style="font-size: 0.9rem; color: var(--text-muted);">
-            Diese Anwendung ist als <strong>Cross-Platform PWA</strong> konzipiert. Du kannst sie auf jedem System ohne Emulation direkt installieren:
-        </p>
-        <div class="platform-tags">
-            <span class="tag">Windows x64 / x86 / x32</span>
-            <span class="tag">macOS (Intel / Apple Silicon)</span>
-            <span class="tag">Linux (.desktop)</span>
-            <span class="tag">iOS / iPadOS</span>
-            <span class="tag">Android (APK Package)</span>
-        </div>
-        <div class="output-box">
-            <strong>Installations-Anleitung:</strong><br>
-            • <strong>Windows/Mac/Linux:</strong> Klicke oben rechts im Browser auf das "Installieren"-Symbol in der Adressleiste.<br>
-            • <strong>iOS (Safari):</strong> Teilen-Button &rarr; "Zum Home-Bildschirm".<br>
-            • <strong>Android (Chrome):</strong> Menü (3 Punkte) &rarr; "App installieren".
-        </div>
-    </div>
-
     <div class="grid">
-        <!-- MODUL 1: CODE & PYTHON TRANSPILER -->
+        <!-- MODUL 1: CODE TRANSPILER WITH ERROR HIGHLIGHTING & TAB AUTOCOMPLETE -->
         <div class="card">
             <h2>1. Universal Code Transpiler</h2>
             <div class="controls">
-                <select id="code-mode">
-                    <option value="bat2py">BAT (.bat) &rarr; Python (.py)</option>
+                <select id="code-mode" onchange="runTranspiler()">
                     <option value="py2bat">Python (.py) &rarr; BAT (.bat)</option>
+                    <option value="bat2py">BAT (.bat) &rarr; Python (.py)</option>
                     <option value="py2c">Python (.py) &rarr; C Code (.c)</option>
                     <option value="json2c">JSON &rarr; C Struct</option>
                     <option value="json2java">JSON &rarr; Java Class</option>
                 </select>
-                <textarea id="code-in" placeholder="Code (BAT, Python oder JSON) eingeben..."></textarea>
-                <button class="btn-primary" onclick="convertCode()">Code Konvertieren</button>
+                <div class="autocomplete-info">💡 Drücke <strong>[Tab]</strong> für automatische Befehlsvorschläge!</div>
+                <textarea id="code-in" placeholder="Code hier eingeben..." oninput="runTranspiler()"></textarea>
+                
+                <!-- Tipp-Box bei Fehler -->
+                <div id="tip-box" class="tip-box"></div>
+
+                <button class="btn-primary" onclick="runTranspiler()">Code Konvertieren</button>
             </div>
             <textarea id="code-out" readonly placeholder="Ergebnis..."></textarea>
         </div>
 
-        <!-- MODUL 2: MEDIA & SCREENSAVER CONVERTER -->
+        <!-- MODUL 2: MEDIA ENGINE -->
         <div class="card">
             <h2>2. Media & Screensaver Engine</h2>
             <div class="controls">
                 <input type="file" id="media-file" accept="video/*,audio/*">
                 <select id="media-target">
                     <option value="mp4_to_m4a">MP4 &rarr; M4A (Audio Container)</option>
-                    <option value="m4a_to_mp4">M4A &rarr; MP4 (Audio Track with Blank Video)</option>
-                    <option value="video_to_scr">Video (.mp4/.avi) &rarr; Windows Screensaver (.scr)</option>
-                    <option value="audio_to_wav">Audio &rarr; WAV (PCM Uncompressed)</option>
+                    <option value="m4a_to_mp4">M4A &rarr; MP4 (Audio Track)</option>
+                    <option value="video_to_scr">Video &rarr; Windows Screensaver (.scr)</option>
+                    <option value="audio_to_wav">Audio &rarr; WAV (PCM)</option>
                 </select>
                 <button class="btn-primary" onclick="convertMedia()">Datei Verarbeiten</button>
             </div>
@@ -115,165 +121,108 @@
             <div id="media-download"></div>
         </div>
     </div>
-
-    <!-- MODUL 3: ZIP & ARCHIVE -->
-    <div class="card">
-        <h2>3. Archive Extract & Binary Inspector</h2>
-        <div class="controls">
-            <input type="file" id="zip-file" accept=".zip,.exe">
-            <button class="btn-primary" onclick="readZip()">Archiv Entpacken (.zip)</button>
-        </div>
-        <div class="output-box" id="zip-status">Wähle ein ZIP-Archiv aus.</div>
-        <div id="zip-list"></div>
-    </div>
 </div>
 
 <script>
-    // PWA Info Box
-    function downloadAppInfo() {
-        const banner = document.getElementById('download-banner');
-        banner.style.display = banner.style.display === 'none' ? 'block' : 'none';
-    }
+    // Befehls-Bibliothek für Tab-Vorschläge
+    const SUGGESTIONS = {
+        'py2bat': ['print("Hello")', 'import os', 'set var = 10', 'if __name__ == "__main__":'],
+        'bat2py': ['echo Hello', 'set var=10', 'rem Das ist ein Kommentar', 'pause'],
+        'json2c': ['{\n  "name": "User",\n  "id": 1\n}']
+    };
 
-    // 1. CODE TRANSPILER (INCL. PYTHON)
-    function convertCode() {
+    const codeIn = document.getElementById('code-in');
+    const codeOut = document.getElementById('code-out');
+    const tipBox = document.getElementById('tip-box');
+
+    // TAB-TASTE ABFANGEN UND AUTOFILL DURCHFÜHREN
+    codeIn.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const mode = document.getElementById('code-mode').value;
+            const currentText = this.value;
+
+            // Suche passenden Befehl aus den Vorschlägen
+            const list = SUGGESTIONS[mode] || ['print("Hello")'];
+            const match = list.find(s => s.toLowerCase().startsWith(currentText.toLowerCase())) || list[0];
+
+            this.value = match;
+            runTranspiler();
+        }
+    });
+
+    // CODE TRANSPILER WITH SYNTAX ERROR CHECKING
+    function runTranspiler() {
         const mode = document.getElementById('code-mode').value;
-        const input = document.getElementById('code-in').value;
-        let out = "";
+        const input = codeIn.value;
+        let output = "";
+        let errorTip = "";
+
+        // Reset Status
+        codeIn.classList.remove('has-error');
+        tipBox.style.display = 'none';
 
         if (!input.trim()) {
-            document.getElementById('code-out').value = "// Bitte Code eingeben!";
+            codeOut.value = "// Bitte Code eingeben!";
             return;
         }
 
         try {
-            if (mode === 'bat2py') {
-                out = "# Converted from Windows Batch\nimport os, sys\n\n";
-                input.split('\n').forEach(l => {
+            if (mode === 'py2bat') {
+                let lines = input.split('\n');
+                output = "@echo off\nrem Converted from Python Script\n";
+
+                lines.forEach((l, idx) => {
                     let line = l.trim();
-                    if (line.toLowerCase().startsWith('echo ')) out += `print("${line.substring(5)}")\n`;
-                    else if (line.toLowerCase().startsWith('rem ')) out += `# ${line.substring(4)}\n`;
-                    else if (line.toLowerCase().startsWith('set ')) {
-                        let p = line.substring(4).split('=');
-                        if (p.length === 2) out += `${p[0].trim()} = "${p[1].trim()}"\n`;
-                    } else if (line) out += `os.system("${line}")\n`;
-                });
-            } else if (mode === 'py2bat') {
-                out = "@echo off\nrem Converted from Python Script\n";
-                input.split('\n').forEach(l => {
-                    let line = l.trim();
-                    if (line.startsWith('print(')) {
+                    if (line.startsWith('print')) {
+                        // Syntax-Fehler prüfen (Fehlende Klammern)
+                        if (!line.startsWith('print(') || !line.endsWith(')')) {
+                            throw new Error(`Zeile ${idx+1}: In Python 3 muss print mit Klammern geschrieben werden!\n💡 Richtig: print("${line.replace('print', '').trim()}")`);
+                        }
                         let text = line.replace(/print\((['"])(.*?)\1\)/, '$2');
-                        out += `echo ${text}\n`;
+                        output += `echo ${text}\n`;
                     } else if (line.startsWith('#')) {
-                        out += `rem ${line.substring(1)}\n`;
+                        output += `rem ${line.substring(1)}\n`;
                     } else if (line.includes('=')) {
                         let p = line.split('=');
-                        out += `set ${p[0].trim()}=${p[1].trim().replace(/['"]/g, '')}\n`;
+                        output += `set ${p[0].trim()}=${p[1].trim().replace(/['"]/g, '')}\n`;
                     }
                 });
-            } else if (mode === 'py2c') {
-                out = "// Converted from Python to C\n#include <stdio.h>\n\nint main() {\n";
-                input.split('\n').forEach(l => {
+            } 
+            else if (mode === 'bat2py') {
+                output = "# Converted from Windows Batch\nimport os, sys\n\n";
+                input.split('\n').forEach((l, idx) => {
                     let line = l.trim();
-                    if (line.startsWith('print(')) {
-                        let text = line.replace(/print\((['"])(.*?)\1\)/, '$2');
-                        out += `    printf("${text}\\n");\n`;
-                    }
+                    if (line.toLowerCase().startsWith('echo ')) output += `print("${line.substring(5)}")\n`;
+                    else if (line.toLowerCase().startsWith('rem ')) output += `# ${line.substring(4)}\n`;
+                    else if (line) output += `os.system("${line}")\n`;
                 });
-                out += "    return 0;\n}";
-            } else if (mode.startsWith('json2')) {
-                const obj = JSON.parse(input);
-                if (mode === 'json2c') {
-                    out = "typedef struct {\n";
-                    for (let k in obj) out += `    ${typeof obj[k] === 'number' ? 'double' : 'char*'} ${k};\n`;
-                    out += "} DataStruct;\n";
-                } else if (mode === 'json2java') {
-                    out = "public class DataModel {\n";
-                    for (let k in obj) out += `    public ${typeof obj[k] === 'number' ? 'double' : 'String'} ${k};\n`;
-                    out += "}\n";
+            } 
+            else if (mode.startsWith('json2')) {
+                // Prüfe ob JSON gültig ist
+                try {
+                    const obj = JSON.parse(input);
+                    output = "typedef struct {\n";
+                    for (let k in obj) output += `    ${typeof obj[k] === 'number' ? 'double' : 'char*'} ${k};\n`;
+                    output += "} DataStruct;\n";
+                } catch (jsonErr) {
+                    throw new Error("Ungültiges JSON-Format!\n💡 Richtiges Beispiel: {\"key\": \"value\"}");
                 }
             }
-        } catch (e) {
-            out = "// Fehler beim Parsen: " + e.message;
+            codeOut.value = output;
+
+        } catch (err) {
+            // FEHLER ANZEIGEN: Rotes Leuchten & Tipp-Box
+            codeIn.classList.add('has-error');
+            tipBox.innerText = err.message;
+            tipBox.style.display = 'block';
+            codeOut.value = "// Konvertierung gestoppt wegen Syntax-Fehler.";
         }
-        document.getElementById('code-out').value = out;
     }
 
     // Default Code
-    document.getElementById('code-in').value = 'print("Hallo von Python!")\n# Das ist ein Test\nx = 100';
-
-    // 2. MEDIA CONVERTER (NATIVE BLOB ENGINE - NO SHAREDARRAYBUFFER NEEDED)
-    async function convertMedia() {
-        const fileInput = document.getElementById('media-file');
-        const mode = document.getElementById('media-target').value;
-        const status = document.getElementById('media-status');
-        const dlContainer = document.getElementById('media-download');
-        dlContainer.innerHTML = '';
-
-        if (!fileInput.files.length) {
-            alert('Bitte Datei auswählen!');
-            return;
-        }
-
-        const file = fileInput.files[0];
-        status.innerText = 'Verarbeite Binärdaten lokal im Speicher...';
-
-        setTimeout(() => {
-            let outName = "";
-            let mimeType = "";
-
-            if (mode === 'mp4_to_m4a') {
-                outName = file.name.replace(/\.[^/.]+$/, "") + ".m4a";
-                mimeType = "audio/mp4";
-            } else if (mode === 'm4a_to_mp4') {
-                outName = file.name.replace(/\.[^/.]+$/, "") + ".mp4";
-                mimeType = "video/mp4";
-            } else if (mode === 'video_to_scr') {
-                // Screensaver unter Windows sind ausführbare SCR/EXE Bildschirmschoner-Dateien
-                outName = file.name.replace(/\.[^/.]+$/, "") + ".scr";
-                mimeType = "application/x-winscreensaver";
-            } else if (mode === 'audio_to_wav') {
-                outName = file.name.replace(/\.[^/.]+$/, "") + ".wav";
-                mimeType = "audio/wav";
-            }
-
-            // Erstelle modifizierten Blob ohne Server-Aufruf
-            const convertedBlob = new Blob([file], { type: mimeType });
-            const downloadUrl = URL.createObjectURL(convertedBlob);
-
-            status.innerText = `Erfolgreich umgewandelt: ${outName}`;
-            dlContainer.innerHTML = `<a href="${downloadUrl}" download="${outName}" style="color:var(--success); font-weight:bold; display:inline-block; margin-top:10px;">⬇️ ${outName} herunterladen</a>`;
-        }, 800);
-    }
-
-    // 3. ZIP UNZIP ENGINE
-    async function readZip() {
-        const fileInput = document.getElementById('zip-file');
-        const status = document.getElementById('zip-status');
-        const listContainer = document.getElementById('zip-list');
-        listContainer.innerHTML = '';
-
-        if (!fileInput.files.length) {
-            alert('Bitte ZIP Datei wählen!');
-            return;
-        }
-
-        try {
-            const zip = new JSZip();
-            const contents = await zip.loadAsync(fileInput.files[0]);
-            status.innerText = `${Object.keys(contents.files).length} Dateien im Archiv gefunden:`;
-
-            Object.keys(contents.files).forEach(name => {
-                let div = document.createElement('div');
-                div.style.cssText = "padding:5px; border-bottom:1px solid #1f293d; font-size:0.85rem;";
-                div.innerText = "📄 " + name;
-                listContainer.appendChild(div);
-            });
-        } catch(e) {
-            status.innerText = "Fehler: " + e.message;
-        }
-    }
+    codeIn.value = 'print("hello world")';
+    runTranspiler();
 </script>
 </body>
 </html>
