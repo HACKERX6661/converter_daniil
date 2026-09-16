@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Universal Converter Platform</title>
+    <!-- JSZip for ZIP handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- FFmpeg WASM Core -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --panel: #161b22;
+            --border: #30363d;
+            --accent: #238636;
+            --accent-hover: #2ea043;
+            --text: #c9d1d9;
+            --text-dim: #8b949e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            color: #58a6ff;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+        }
+
+        main {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 20px;
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #f0f6fc;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        select, input[type="file"], button {
+            background-color: #21262d;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        select:focus, button:focus {
+            border-color: #58a6ff;
+        }
+
+        button {
+            background-color: var(--accent);
+            color: #ffffff;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .editor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 700px) {
+            .editor-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background-color: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: #e6edf3;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 10px;
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+
+        .status-box {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #0d1117;
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            min-height: 40px;
+        }
+
+        .file-list {
+            margin-top: 10px;
+            list-style: none;
+        }
+
+        .file-list li {
+            padding: 6px 10px;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            margin-bottom: 5px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Universal Client-Side File Converter Engine</h1>
+        <p>Lokale Konvertierung via WebAssembly (WASM), AST Transpilation & Zip Processing. Keine Serverübertragung.</p>
+    </header>
+
+    <main>
+        <!-- MODUL 1: CODE TRANSPILER -->
+        <section class="card">
+            <h2>1. Code & Script Transpiler</h2>
+            <div class="controls">
+                <select id="transpiler-mode">
+                    <option value="bat2py">BAT (.bat) &rarr; Python (.py)</option>
+                    <option value="bat2c">BAT (.bat) &rarr; C (.c)</option>
+                    <option value="json2c">JSON &rarr; C Struct</option>
+                    <option value="json2java">JSON &rarr; Java Class</option>
+                    <option value="json2cpp">JSON &rarr; C++ Class</option>
+                </select>
+                <button onclick="runTranspiler()">Transpilieren</button>
+            </div>
+            <div class="editor-grid">
+                <div>
+                    <label style="font-size:0.8rem; color:var(--text-dim);">Input Code:</label>
+                    <textarea id="code-input" placeholder="Code hier eingeben..."></textarea>
+                </div>
+                <div>
+                    <label style="font-size:0.8rem; color:var(--text-dim);">Generierter Output:</label>
+                    <textarea id="code-output" readonly placeholder="Ergebnis wird hier generiert..."></textarea>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODUL 2: MEDIA CONVERTER (FFMPEG WASM) -->
+        <section class="card">
+            <h2>2. Audio & Video Converter (FFmpeg WASM)</h2>
+            <div class="controls">
+                <input type="file" id="media-input" accept="video/*,audio/*">
+                <select id="media-target">
+                    <option value="mp3">zu MP3 (Audio)</option>
+                    <option value="wav">zu WAV (Audio)</option>
+                    <option value="m4a">zu M4A (Audio)</option>
+                    <option value="mp4">zu MP4 (Video)</option>
+                </select>
+                <button onclick="processMedia()">Medien Konvertieren</button>
+            </div>
+            <div class="status-box" id="media-status">Bereit für Medienkonvertierung.</div>
+            <div id="media-download-container" style="margin-top: 10px;"></div>
+        </section>
+
+        <!-- MODUL 3: ARCHIV & UNZIP -->
+        <section class="card">
+            <h2>3. Archive & Zip Processing (JSZip)</h2>
+            <div class="controls">
+                <input type="file" id="zip-input" accept=".zip,.exe">
+                <button onclick="processZip()">Archiv Entpacken / Analysieren</button>
+            </div>
+            <div class="status-box" id="zip-status">Wähle eine .zip Datei aus.</div>
+            <ul class="file-list" id="zip-file-list"></ul>
+        </section>
+    </main>
+
+    <script>
+        // ==========================================
+        // 1. CODE TRANSPILER LOGIC
+        // ==========================================
+        function runTranspiler() {
+            const mode = document.getElementById('transpiler-mode').value;
+            const input = document.getElementById('code-input').value;
+            let output = "";
+
+            if (!input.trim()) {
+                document.getElementById('code-output').value = "// Bitte Quellcode eingeben.";
+                return;
+            }
+
+            try {
+                if (mode === 'bat2py') {
+                    output = "# Auto-generated from Windows Batch\nimport os, sys\n\n";
+                    input.split('\n').forEach(line => {
+                        let l = line.trim();
+                        if (l.toLowerCase().startsWith('echo ')) output += `print("${l.substring(5)}")\n`;
+                        else if (l.toLowerCase().startsWith('rem ')) output += `# ${l.substring(4)}\n`;
+                        else if (l.toLowerCase().startsWith('set ')) {
+                            let parts = l.substring(4).split('=');
+                            if (parts.length === 2) output += `${parts[0].trim()} = "${parts[1].trim()}"\n`;
+                        } else if (l) output += `os.system("${l}")\n`;
+                    });
+                } 
+                else if (mode === 'bat2c') {
+                    output = "// Auto-generated from Windows Batch\n#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n";
+                    input.split('\n').forEach(line => {
+                        let l = line.trim();
+                        if (l.toLowerCase().startsWith('echo ')) output += `    printf("${l.substring(5)}\\n");\n`;
+                        else if (l.toLowerCase().startsWith('rem ')) output += `    // ${l.substring(4)}\n`;
+                        else if (l) output += `    system("${l}");\n`;
+                    });
+                    output += "    return 0;\n}";
+                }
+                else if (mode.startsWith('json2')) {
+                    const parsed = JSON.parse(input);
+                    if (mode === 'json2c') {
+                        output = "typedef struct {\n";
+                        for (let key in parsed) {
+                            let type = typeof parsed[key];
+                            let cType = type === 'number' ? (Number.isInteger(parsed[key]) ? 'int' : 'double') : 'char*';
+                            output += `    ${cType} ${key};\n`;
+                        }
+                        output += "} GeneratedStruct;\n";
+                    } 
+                    else if (mode === 'json2java') {
+                        output = "public class GeneratedClass {\n";
+                        for (let key in parsed) {
+                            let type = typeof parsed[key];
+                            let jType = type === 'number' ? (Number.isInteger(parsed[key]) ? 'int' : 'double') : 'String';
+                            output += `    private ${jType} ${key};\n`;
+                        }
+                        output += "}\n";
+                    }
+                    else if (mode === 'json2cpp') {
+                        output = "#include <string>\n\nclass GeneratedClass {\npublic:\n";
+                        for (let key in parsed) {
+                            let type = typeof parsed[key];
+                            let cppType = type === 'number' ? (Number.isInteger(parsed[key]) ? 'int' : 'double') : 'std::string';
+                            output += `    ${cppType} ${key};\n`;
+                        }
+                        output += "};\n";
+                    }
+                }
+            } catch (e) {
+                output = "// Fehler beim Parsen: " + e.message;
+            }
+
+            document.getElementById('code-output').value = output;
+        }
+
+        // Default Input setzen
+        document.getElementById('code-input').value = 'echo Hello World\nset var=10\nrem Das ist ein Kommentar';
+
+        // ==========================================
+        // 2. FFMPEG WASM LOGIC
+        // ==========================================
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        let ffmpeg = null;
+
+        async function processMedia() {
+            const status = document.getElementById('media-status');
+            const fileInput = document.getElementById('media-input');
+            const targetFormat = document.getElementById('media-target').value;
+            const downloadContainer = document.getElementById('media-download-container');
+
+            if (!fileInput.files.length) {
+                alert('Bitte wähle eine Datei aus!');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const inName = file.name;
+            const outName = `converted_${Date.now()}.${targetFormat}`;
+
+            try {
+                if (!ffmpeg) {
+                    status.innerText = 'Lade WebAssembly FFmpeg Core...';
+                    ffmpeg = createFFmpeg({ log: true });
+                    await ffmpeg.load();
+                }
+
+                status.innerText = 'Datei wird in WASM Virtual Memory geschrieben...';
+                ffmpeg.FS('writeFile', inName, await fetchFile(file));
+
+                status.innerText = 'Konvertierung läuft (transcoding)...';
+                await ffmpeg.run('-i', inName, outName);
+
+                status.innerText = 'Erfolgreich konvertiert!';
+                const data = ffmpeg.FS('readFile', outName);
+
+                const blob = new Blob([data.buffer], { type: `audio/${targetFormat}` });
+                const url = URL.createObjectURL(blob);
+
+                downloadContainer.innerHTML = `<a href="${url}" download="${outName}" style="color:#58a6ff; font-weight:bold;">&rarr; ${outName} herunterladen</a>`;
+            } catch (e) {
+                status.innerText = 'Fehler bei der WASM-Verarbeitung: ' + e.message;
+            }
+        }
+
+        // ==========================================
+        // 3. ZIP / UNZIP LOGIC
+        // ==========================================
+        async function processZip() {
+            const fileInput = document.getElementById('zip-input');
+            const status = document.getElementById('zip-status');
+            const fileList = document.getElementById('zip-file-list');
+            fileList.innerHTML = '';
+
+            if (!fileInput.files.length) {
+                alert('Bitte wähle eine .zip Datei aus!');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            status.innerText = 'Lese Archivstruktur...';
+
+            try {
+                const zip = new JSZip();
+                const contents = await zip.loadAsync(file);
+
+                status.innerText = `Archiv geöffnet: ${Object.keys(contents.files).length} Dateien gefunden.`;
+
+                Object.keys(contents.files).forEach(filename => {
+                    const li = document.createElement('li');
+                    li.textContent = filename;
+                    
+                    if (!contents.files[filename].dir) {
+                        const btn = document.createElement('button');
+                        btn.textContent = 'Extract';
+                        btn.style.padding = '2px 8px';
+                        btn.style.fontSize = '0.75rem';
+                        btn.onclick = async () => {
+                            const blob = await contents.files[filename].async('blob');
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = filename.split('/').pop();
+                            a.click();
+                        };
+                        li.appendChild(btn);
+                    }
+                    fileList.appendChild(li);
+                });
+            } catch (e) {
+                status.innerText = 'Fehler beim Lesen des Archivs: ' + e.message;
+            }
+        }
+    </script>
+</body>
+</html>
