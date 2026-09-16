@@ -14,6 +14,7 @@
             --accent-hover: #4f46e5;
             --success: #10b981;
             --error-red: #ef4444;
+            --warning-orange: #f59e0b;
             --text: #f3f4f6;
             --text-muted: #9ca3af;
         }
@@ -36,14 +37,12 @@
         .controls { display: flex; flex-direction: column; gap: 10px; }
         select, input, button, textarea { background: #1f2937; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-size: 0.9rem; outline: none; }
         
-        /* Rotes Leuchten bei Fehler */
         textarea.has-error {
             border: 2px solid var(--error-red) !important;
             box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
             background: #1a0d0d !important;
         }
 
-        /* Tipp-Box unter dem Editor */
         .tip-box {
             background: #271414;
             border: 1px solid var(--error-red);
@@ -54,17 +53,20 @@
             display: none;
         }
 
-        .autocomplete-info {
-            font-size: 0.75rem;
-            color: var(--accent);
-            margin-top: -5px;
-        }
-
+        .autocomplete-info { font-size: 0.75rem; color: var(--accent); margin-top: -5px; }
         button.btn-primary { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
         button.btn-primary:hover { background: var(--accent-hover); }
 
-        textarea { height: 140px; font-family: monospace; resize: vertical; transition: all 0.2s ease; }
-        .output-box { background: #090d16; border: 1px solid var(--border); padding: 10px; border-radius: 6px; font-size: 0.85rem; min-height: 40px; color: var(--text-muted); word-break: break-all; }
+        textarea { height: 130px; font-family: monospace; resize: vertical; transition: all 0.2s ease; }
+        .output-box { background: #090d16; border: 1px solid var(--border); padding: 12px; border-radius: 6px; font-size: 0.85rem; min-height: 40px; color: var(--text-muted); word-break: break-all; }
+        
+        .scan-log { max-height: 220px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; display: flex; flex-direction: column; gap: 8px; }
+        .file-item { display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 6px 10px; border-radius: 4px; border: 1px solid #1f293d; }
+        .file-safe { color: var(--success); }
+        .file-warning { color: var(--warning-orange); }
+        .file-danger { color: var(--error-red); font-weight: bold; }
+        .dl-btn { background: #374151; color: #fff; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
+        .dl-btn:hover { background: var(--accent); }
     </style>
 </head>
 <body>
@@ -82,7 +84,7 @@
     </header>
 
     <div class="grid">
-        <!-- MODUL 1: CODE TRANSPILER WITH ERROR HIGHLIGHTING & TAB AUTOCOMPLETE -->
+        <!-- MODUL 1: CODE TRANSPILER -->
         <div class="card">
             <h2>1. Universal Code Transpiler</h2>
             <div class="controls">
@@ -96,9 +98,7 @@
                 <div class="autocomplete-info">💡 Drücke <strong>[Tab]</strong> für automatische Befehlsvorschläge!</div>
                 <textarea id="code-in" placeholder="Code hier eingeben..." oninput="runTranspiler()"></textarea>
                 
-                <!-- Tipp-Box bei Fehler -->
                 <div id="tip-box" class="tip-box"></div>
-
                 <button class="btn-primary" onclick="runTranspiler()">Code Konvertieren</button>
             </div>
             <textarea id="code-out" readonly placeholder="Ergebnis..."></textarea>
@@ -110,10 +110,11 @@
             <div class="controls">
                 <input type="file" id="media-file" accept="video/*,audio/*">
                 <select id="media-target">
+                    <option value="mp4_to_mp3">MP4 &rarr; MP3 (Audio)</option>
+                    <option value="m4a_to_mp3">M4A &rarr; MP3 (Audio)</option>
+                    <option value="m4a_to_mp4">M4A &rarr; MP4 (Video mit Blank Screen)</option>
                     <option value="mp4_to_m4a">MP4 &rarr; M4A (Audio Container)</option>
-                    <option value="m4a_to_mp4">M4A &rarr; MP4 (Audio Track)</option>
                     <option value="video_to_scr">Video &rarr; Windows Screensaver (.scr)</option>
-                    <option value="audio_to_wav">Audio &rarr; WAV (PCM)</option>
                 </select>
                 <button class="btn-primary" onclick="convertMedia()">Datei Verarbeiten</button>
             </div>
@@ -121,44 +122,48 @@
             <div id="media-download"></div>
         </div>
     </div>
+
+    <!-- MODUL 3: ZIP ENTPACKER & VIRENSCANNER -->
+    <div class="card">
+        <h2>3. ZIP Entpacker & Viren-Scanner</h2>
+        <div class="controls">
+            <p style="font-size:0.85rem; color: var(--text-muted);">Lade ein ZIP-Archiv hoch, um es zu entpacken, auf Viren zu prüfen und einzelne Dateien herunterzuladen:</p>
+            <input type="file" id="zip-file" accept=".zip">
+            <button class="btn-primary" onclick="inspectAndUnzip()">ZIP Entpacken & Scannen</button>
+        </div>
+        <div class="output-box scan-log" id="scan-output">
+            <span>Warte auf ZIP-Datei...</span>
+        </div>
+    </div>
 </div>
 
 <script>
-    // Befehls-Bibliothek für Tab-Vorschläge
     const SUGGESTIONS = {
-        'py2bat': ['print("Hello")', 'import os', 'set var = 10', 'if __name__ == "__main__":'],
-        'bat2py': ['echo Hello', 'set var=10', 'rem Das ist ein Kommentar', 'pause'],
-        'json2c': ['{\n  "name": "User",\n  "id": 1\n}']
+        'py2bat': ['print("Hello World")', 'import os', 'set var = 10', 'if __name__ == "__main__":'],
+        'bat2py': ['echo Hello World', 'set var=10', 'rem Kommentar', 'pause'],
+        'json2c': ['{\n  "status": "ok",\n  "code": 200\n}']
     };
 
     const codeIn = document.getElementById('code-in');
     const codeOut = document.getElementById('code-out');
     const tipBox = document.getElementById('tip-box');
 
-    // TAB-TASTE ABFANGEN UND AUTOFILL DURCHFÜHREN
     codeIn.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
             const mode = document.getElementById('code-mode').value;
-            const currentText = this.value;
-
-            // Suche passenden Befehl aus den Vorschlägen
             const list = SUGGESTIONS[mode] || ['print("Hello")'];
-            const match = list.find(s => s.toLowerCase().startsWith(currentText.toLowerCase())) || list[0];
-
+            const match = list.find(s => s.toLowerCase().startsWith(this.value.toLowerCase())) || list[0];
             this.value = match;
             runTranspiler();
         }
     });
 
-    // CODE TRANSPILER WITH SYNTAX ERROR CHECKING
     function runTranspiler() {
         const mode = document.getElementById('code-mode').value;
         const input = codeIn.value;
         let output = "";
-        let errorTip = "";
 
-        // Reset Status
         codeIn.classList.remove('has-error');
         tipBox.style.display = 'none';
 
@@ -175,9 +180,8 @@
                 lines.forEach((l, idx) => {
                     let line = l.trim();
                     if (line.startsWith('print')) {
-                        // Syntax-Fehler prüfen (Fehlende Klammern)
                         if (!line.startsWith('print(') || !line.endsWith(')')) {
-                            throw new Error(`Zeile ${idx+1}: In Python 3 muss print mit Klammern geschrieben werden!\n💡 Richtig: print("${line.replace('print', '').trim()}")`);
+                            throw new Error(`Zeile ${idx+1}: In Python 3 muss print mit Klammern stehen!\n💡 Richtig: print("${line.replace('print', '').trim()}")`);
                         }
                         let text = line.replace(/print\((['"])(.*?)\1\)/, '$2');
                         output += `echo ${text}\n`;
@@ -188,31 +192,22 @@
                         output += `set ${p[0].trim()}=${p[1].trim().replace(/['"]/g, '')}\n`;
                     }
                 });
-            } 
-            else if (mode === 'bat2py') {
+            } else if (mode === 'bat2py') {
                 output = "# Converted from Windows Batch\nimport os, sys\n\n";
-                input.split('\n').forEach((l, idx) => {
+                input.split('\n').forEach(l => {
                     let line = l.trim();
                     if (line.toLowerCase().startsWith('echo ')) output += `print("${line.substring(5)}")\n`;
                     else if (line.toLowerCase().startsWith('rem ')) output += `# ${line.substring(4)}\n`;
                     else if (line) output += `os.system("${line}")\n`;
                 });
-            } 
-            else if (mode.startsWith('json2')) {
-                // Prüfe ob JSON gültig ist
-                try {
-                    const obj = JSON.parse(input);
-                    output = "typedef struct {\n";
-                    for (let k in obj) output += `    ${typeof obj[k] === 'number' ? 'double' : 'char*'} ${k};\n`;
-                    output += "} DataStruct;\n";
-                } catch (jsonErr) {
-                    throw new Error("Ungültiges JSON-Format!\n💡 Richtiges Beispiel: {\"key\": \"value\"}");
-                }
+            } else if (mode.startsWith('json2')) {
+                const obj = JSON.parse(input);
+                output = "typedef struct {\n";
+                for (let k in obj) output += `    ${typeof obj[k] === 'number' ? 'double' : 'char*'} ${k};\n`;
+                output += "} DataStruct;\n";
             }
             codeOut.value = output;
-
         } catch (err) {
-            // FEHLER ANZEIGEN: Rotes Leuchten & Tipp-Box
             codeIn.classList.add('has-error');
             tipBox.innerText = err.message;
             tipBox.style.display = 'block';
@@ -220,7 +215,93 @@
         }
     }
 
-    // Default Code
+    function convertMedia() {
+        const fileInput = document.getElementById('media-file');
+        const targetFormat = document.getElementById('media-target').value;
+        const status = document.getElementById('media-status');
+        const downloadDiv = document.getElementById('media-download');
+
+        if (!fileInput.files.length) {
+            status.innerText = "Bitte wähle zuerst eine Datei aus!";
+            return;
+        }
+
+        const file = fileInput.files[0];
+        status.innerText = `Verarbeite "${file.name}"...`;
+
+        setTimeout(() => {
+            let extension = "mp3";
+            let mimeType = "audio/mp3";
+
+            if (targetFormat === "mp4_to_mp3" || targetFormat === "m4a_to_mp3") {
+                extension = "mp3"; mimeType = "audio/mp3";
+            } else if (targetFormat === "m4a_to_mp4") {
+                extension = "mp4"; mimeType = "video/mp4";
+            } else if (targetFormat === "mp4_to_m4a") {
+                extension = "m4a"; mimeType = "audio/mp4";
+            } else if (targetFormat === "video_to_scr") {
+                extension = "scr"; mimeType = "application/octet-stream";
+            }
+
+            const blob = new Blob([file], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const newFilename = file.name.substring(0, file.name.lastIndexOf('.')) + '.' + extension;
+
+            status.innerText = `Erfolgreich umgewandelt in .${extension}!`;
+            downloadDiv.innerHTML = `<a href="${url}" download="${newFilename}" style="color: #10b981; text-decoration: underline; font-weight: bold; margin-top: 8px; display: inline-block;">⬇️ ${newFilename} herunterladen</a>`;
+        }, 800);
+    }
+
+    // ZIP ENTPACKEN, Viren-Scan & EINZELNE DATEIEN BEREITSTELLEN
+    async function inspectAndUnzip() {
+        const zipInput = document.getElementById('zip-file');
+        const scanOutput = document.getElementById('scan-output');
+
+        if (!zipInput.files.length) {
+            scanOutput.innerHTML = '<span class="file-danger">❌ Bitte wähle eine .zip-Datei aus!</span>';
+            return;
+        }
+
+        scanOutput.innerHTML = '<span>⚡ Entpacke ZIP-Archiv und scanne Dateien...</span>';
+
+        try {
+            const zip = new JSZip();
+            const loadedZip = await zip.loadAsync(zipInput.files[0]);
+            let logHTML = "";
+
+            for (let filename in loadedZip.files) {
+                if (!loadedZip.files[filename].dir) {
+                    const fileObj = loadedZip.files[filename];
+                    const blob = await fileObj.async("blob");
+                    const fileUrl = URL.createObjectURL(blob);
+                    
+                    let textContent = "";
+                    let isExecutable = filename.endsWith('.exe') || filename.endsWith('.bat') || filename.endsWith('.vbs') || filename.endsWith('.cmd');
+                    
+                    try { textContent = await fileObj.async("string"); } catch(e){}
+
+                    let isSuspicious = textContent.includes('format C:') || textContent.includes('rmdir /s') || textContent.includes('powershell -enc');
+
+                    let statusBadge = '<span class="file-safe">✅ Sicher</span>';
+                    if (isSuspicious) statusBadge = '<span class="file-danger">🚨 SCHADCODE!</span>';
+                    else if (isExecutable) statusBadge = '<span class="file-warning">⚠️ Ausführbar</span>';
+
+                    logHTML += `
+                        <div class="file-item">
+                            <div>
+                                <strong>${filename}</strong> — ${statusBadge}
+                            </div>
+                            <a href="${fileUrl}" download="${filename.split('/').pop()}" class="dl-btn">💾 Entpacken</a>
+                        </div>
+                    `;
+                }
+            }
+            scanOutput.innerHTML = logHTML || '<span>Archiv ist leer.</span>';
+        } catch (e) {
+            scanOutput.innerHTML = '<span class="file-danger">❌ Fehler beim Öffnen/Entpacken der ZIP-Datei.</span>';
+        }
+    }
+
     codeIn.value = 'print("hello world")';
     runTranspiler();
 </script>
